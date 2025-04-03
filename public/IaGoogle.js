@@ -10,7 +10,9 @@ function gerarConteudo(prompt) {
   }
 }
 
-async function perguntar() {
+async function perguntar(event) {
+  event.preventDefault(); // Evita o reload da página
+  
   const inputElement = document.getElementById("prompt");
   const prompt = inputElement.value.trim();
   if (!prompt) return;
@@ -19,8 +21,6 @@ async function perguntar() {
   inputElement.value = "";  // Limpa o input imediatamente
 
   try {
-    // Adicione um loader enquanto espera a resposta
-    
     const resposta = await fetch("http://localhost:3000/perguntar", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -33,21 +33,16 @@ async function perguntar() {
 
     const data = await resposta.json();
     
-    
-    // Formata a resposta (mantenha seus links HTML se existirem)
-    const respostaFormatada = data.resposta.includes("<a") 
-      ? data.resposta 
-      : formatText(data.resposta.replace(
-          /(https?:\/\/[^\s]+)/g, '<a href="$&" target="_blank">$&</a>'
-        ));
-
-    addMessage(respostaFormatada, "bot");
-    
+    addMessage(data.resposta, "bot");
   } catch (error) {
     console.error("Erro:", error);
     addMessage("Erro ao conectar com o servidor. Tente novamente.", "bot");
   }
 }
+
+// Impedir o comportamento padrão do botão de enviar
+document.querySelector(".input-container button").addEventListener("click", perguntar);
+
 
 // Modifique a função addMessage para retornar o elemento criado
 function addMessage(text, sender) {

@@ -66,7 +66,6 @@ const db = new sqlite3.Database("./database.db", (err) => {
   );
 });
 
-// Restante do seu código (rotas, etc.) permanece o mesmo
 app.post("/perguntar", (req, res) => {
   const { pergunta } = req.body;
 
@@ -78,7 +77,8 @@ app.post("/perguntar", (req, res) => {
     return texto
       .toLowerCase()
       .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "")
-      .replace(/\s{2,}/g, " ");
+      .replace(/\s{2,}/g, " ")
+      .trim();
   };
 
   const perguntaNormalizada = normalizarTexto(pergunta);
@@ -95,27 +95,53 @@ app.post("/perguntar", (req, res) => {
 
       let melhorResposta = "Desculpe, não consegui entender sua pergunta.";
       let melhorPontuacao = 0;
+      let melhorCorrespondencia = 0;
+
+      console.log("Pergunta do usuário:", perguntaNormalizada);
 
       rows.forEach((row) => {
+        const perguntaBanco = normalizarTexto(row.pergunta);
         const palavrasChave = row.palavras_chave
           .split(",")
-          .map((p) => p.trim());
+          .map((p) => p.trim().toLowerCase());
+
+        // Verifica se a pergunta do usuário corresponde exatamente a uma do banco
+        if (perguntaBanco === perguntaNormalizada) {
+          console.log("Correspondência exata encontrada:", row.pergunta);
+          return res.json({ resposta: row.resposta });
+        }
+
+        // Calcula a pontuação das palavras-chave
         const pontuacao = palavrasChave.filter((palavra) =>
           palavrasUsuario.includes(palavra)
         ).length;
 
-        if (pontuacao > melhorPontuacao) {
+        // Calcula a similaridade baseada na contagem de palavras correspondentes
+        const correspondencia = perguntaNormalizada
+          .split(" ")
+          .filter((palavra) => perguntaBanco.includes(palavra)).length;
+
+        console.log(`Pergunta no banco: ${row.pergunta} | Pontuação: ${pontuacao} | Correspondência: ${correspondencia}`);
+
+        // Atualiza a melhor resposta com base na pontuação e na correspondência
+        if (
+          pontuacao > melhorPontuacao ||
+          (pontuacao === melhorPontuacao && correspondencia > melhorCorrespondencia)
+        ) {
           melhorPontuacao = pontuacao;
+          melhorCorrespondencia = correspondencia;
           melhorResposta = row.resposta;
         }
       });
 
+      console.log("Melhor resposta escolhida:", melhorResposta);
       return res.json({
-        resposta: melhorPontuacao > 0 ? melhorResposta : melhorResposta,
+        resposta: melhorPontuacao > 0 ? melhorResposta : "Desculpe, não encontrei uma resposta exata.",
       });
     }
   );
 });
+
 
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
